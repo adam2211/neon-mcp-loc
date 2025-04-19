@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import express from 'express';
+// import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'; // Commented out stdio transport
 import { NEON_HANDLERS, NEON_TOOLS, ToolHandler } from './tools.js';
 import { NEON_RESOURCES } from './resources.js';
 import { handleInit, parseArgs } from './initConfig.js';
@@ -35,13 +36,15 @@ if (command === 'init') {
 // "start" command from here
 // ----------------------------
 
+// --- Neon API Client Setup (Existing) ---
 export const neonClient = createApiClient({
-  apiKey: neonApiKey,
+  apiKey: neonApiKey, // Make sure neonApiKey is available via env var or other means on Render
   headers: {
     'User-Agent': `mcp-server-neon/${packageJson.version}`,
   },
 });
 
+// --- MCP Server Setup (Existing) ---
 const server = new McpServer(
   {
     name: 'mcp-server-neon',
@@ -55,7 +58,7 @@ const server = new McpServer(
   },
 );
 
-// Register tools
+// Register tools (Existing)
 NEON_TOOLS.forEach((tool) => {
   const handler = NEON_HANDLERS[tool.name];
   if (!handler) {
@@ -70,7 +73,7 @@ NEON_TOOLS.forEach((tool) => {
   );
 });
 
-// Register resources
+// Register resources (Existing)
 NEON_RESOURCES.forEach((resource) => {
   server.resource(
     resource.name,
@@ -83,16 +86,45 @@ NEON_RESOURCES.forEach((resource) => {
   );
 });
 
+// --- Express HTTP Server Setup ---
+const app = express();
+// ** FIX: Ensure PORT is a number using parseInt **
+const PORT: number = parseInt(process.env.PORT || '3000', 10);
+const HOST = '0.0.0.0'; // Listen on all interfaces for Render compatibility
+
+// Middleware (optional: add body parsing, cors, etc. if needed)
+app.use(express.json());
+
+// --- Define Your HTTP API Routes Here ---
+app.get('/', (req, res) => {
+  res.send(`MCP Server Neon (v${packageJson.version}) is running. Use API endpoints.`);
+});
+
+app.get('/api/status', (req, res) => {
+  // ** FIX: Use known name and version from packageJson directly **
+  res.json({
+    status: 'running',
+    name: 'mcp-server-neon',          // Use the known name directly
+    version: packageJson.version,      // Use the version from package.json
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Add more routes (GET, POST, etc.) as needed.
+
 /**
- * Start the server using stdio transport.
- * This allows the server to communicate via standard input/output streams.
+ * Start the HTTP server.
  */
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  // Start Express server
+  app.listen(PORT, HOST, () => { // PORT is now guaranteed to be a number
+    console.log(`HTTP server listening on http://${HOST}:${PORT}`);
+    console.log(`Render service accessible via its .onrender.com URL`);
+    console.log(`Using Neon API Key: ${neonApiKey ? 'Provided' : 'Not Provided'}`);
+  });
 }
 
 main().catch((error: unknown) => {
-  console.error('Server error:', error);
+  console.error('Server failed to start:', error);
   process.exit(1);
 });
