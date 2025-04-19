@@ -148,7 +148,7 @@ app.get('/api/status', (req: Request, res: Response) => {
   });
 });
 
-app.get('/api/tools', (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/tools', (req: Request, res: Response, next: NextFunction) => {
   try {
     const toolList = NEON_TOOLS.map(tool => ({
       name: tool.name,
